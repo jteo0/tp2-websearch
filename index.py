@@ -58,6 +58,7 @@ class InvertedIndex:
         self.doc_length = {}    # key: doc ID (int), value: document length (number of tokens)
                                 # Ini nantinya akan berguna untuk normalisasi Score terhadap panjang
                                 # dokumen saat menghitung score dengan TF-IDF atau BM25
+        self.total_doc_length = 0 # added
 
     def __enter__(self):
         """
@@ -97,7 +98,6 @@ class InvertedIndex:
         # Menyimpan metadata (postings dict dan terms) ke file metadata dengan bantuan pickle
         with open(self.metadata_file_path, 'wb') as f:
             pickle.dump([self.postings_dict, self.terms, self.doc_length], f)
-
 
 class InvertedIndexReader(InvertedIndex):
     """

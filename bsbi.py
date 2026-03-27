@@ -223,6 +223,55 @@ class BSBIIndex:
             docs = [(score, self.doc_id_map[doc_id]) for (doc_id, score) in scores.items()]
             return sorted(docs, key = lambda x: x[0], reverse = True)[:k]
 
+    def retrieve_bm25(self, query, k=10, k1=1.2, b=0.75):
+        """
+        Ranked retrieval dengan skema TaaT menggunakan BM25.
+
+        Parameters
+        ----------
+        query : str
+            Query tokens dipisahkan spasi
+        k : int
+            Jumlah dokumen teratas yang dikembalikan
+        k1 : float
+            Parameter saturasi TF (default 1.2)
+        b : float
+            Parameter normalisasi panjang dokumen (default 0.75)
+
+        Returns
+        -------
+        List[(float, str)]
+            Top-K dokumen terurut menurun berdasarkan skor BM25
+        """
+        if len(self.term_id_map) == 0 or len(self.doc_id_map) == 0:
+            self.load()
+
+        terms = [self.term_id_map[word] for word in query.split()
+                if word in self.term_id_map.str_to_id]
+
+        with InvertedIndexReader(self.index_name, self.postings_encoding,
+                                directory=self.output_dir) as merged_index:
+
+            N = len(merged_index.doc_length)
+            avgdl = sum(merged_index.doc_length.values()) / N
+
+            scores = {}
+            for term in terms:
+                if term not in merged_index.postings_dict:
+                    continue
+
+                df = merged_index.postings_dict[term][1]
+                idf = math.log((N - df + 0.5) / (df + 0.5) + 1)
+
+                postings, tf_list = merged_index.get_postings_list(term)
+                for doc_id, tf in zip(postings, tf_list):
+                    dl = merged_index.doc_length[doc_id]
+                    tf_norm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / avgdl))
+                    scores[doc_id] = scores.get(doc_id, 0) + idf * tf_norm
+
+        docs = [(score, self.doc_id_map[doc_id]) for doc_id, score in scores.items()]
+        return sorted(docs, key=lambda x: x[0], reverse=True)[:k]
+    
     def index(self):
         """
         Base indexing code

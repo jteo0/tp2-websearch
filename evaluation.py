@@ -28,7 +28,6 @@ def rbp(ranking, p = 0.8):
     score += ranking[pos] * (p ** (i - 1))
   return (1 - p) * score
 
-
 ######## >>>>> memuat qrels
 
 def load_qrels(qrel_file = "qrels.txt", max_q_id = 30, max_doc_id = 1033):
@@ -65,6 +64,7 @@ def eval(qrels, query_file = "queries.txt", k = 1000):
 
   with open(query_file) as file:
     rbp_scores = []
+    rbp_scores_bm25 = []
     for qline in file:
       parts = qline.strip().split()
       qid = parts[0]
@@ -77,9 +77,17 @@ def eval(qrels, query_file = "queries.txt", k = 1000):
           did = int(re.search(r'\/.*\/.*\/(.*)\.txt', doc).group(1))
           ranking.append(qrels[qid][did])
       rbp_scores.append(rbp(ranking))
+      
+      for (score, doc) in BSBI_instance.retrieve_bm25(query, k=k):
+        did = int(re.search(r'\/.*\/.*\/(.*)\.txt', doc).group(1))
+        ranking.append(qrels[qid][did])
+      rbp_scores_bm25.append(rbp(ranking))
 
   print("Hasil evaluasi TF-IDF terhadap 30 queries")
   print("RBP score =", sum(rbp_scores) / len(rbp_scores))
+  
+  print("Hasil evaluasi BM25 terhadap 30 queries")
+  print("RBP score =", sum(rbp_scores_bm25) / len(rbp_scores_bm25))
 
 if __name__ == '__main__':
   qrels = load_qrels()
