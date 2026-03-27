@@ -4,10 +4,11 @@ import contextlib
 import heapq
 import time
 import math
+import sys
 
 from index import InvertedIndexReader, InvertedIndexWriter
 from util import IdMap, sorted_merge_posts_and_tfs
-from compression import StandardPostings, VBEPostings
+from compression import StandardPostings, VBEPostings, EliasGammaPostings
 from tqdm import tqdm
 
 class BSBIIndex:
@@ -301,8 +302,8 @@ class BSBIIndex:
 
 
 if __name__ == "__main__":
-
+    encoding = VBEPostings if len(sys.argv) < 2 or sys.argv[1] == "vbe" else EliasGammaPostings
     BSBI_instance = BSBIIndex(data_dir = 'collection', \
-                              postings_encoding = VBEPostings, \
+                              postings_encoding = encoding, \
                               output_dir = 'index')
     BSBI_instance.index() # memulai indexing!
