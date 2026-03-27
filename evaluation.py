@@ -1,6 +1,7 @@
 import re
 from bsbi import BSBIIndex
 from compression import VBEPostings
+import math
 
 ######## >>>>> sebuah IR metric: RBP p = 0.8
 
@@ -27,6 +28,30 @@ def rbp(ranking, p = 0.8):
     pos = i - 1
     score += ranking[pos] * (p ** (i - 1))
   return (1 - p) * score
+
+def dcg(ranking):
+    score = 0.
+    for i in range(1, len(ranking) + 1):
+        score += ranking[i - 1] / math.log2(i + 1)
+    return score
+
+def ndcg(ranking):
+    ideal = sorted(ranking, reverse=True)
+    ideal_score = dcg(ideal)
+    if ideal_score == 0:
+        return 0.
+    return dcg(ranking) / ideal_score
+
+def ap(ranking):
+    score = 0.
+    num_relevant = 0
+    for i in range(1, len(ranking) + 1):
+        if ranking[i - 1] == 1:
+            num_relevant += 1
+            score += num_relevant / i
+    if num_relevant == 0:
+        return 0.
+    return score / num_relevant
 
 ######## >>>>> memuat qrels
 
@@ -63,8 +88,9 @@ def eval(qrels, query_file = "queries.txt", k = 1000):
                           output_dir = 'index')
 
   with open(query_file) as file:
-    rbp_scores = []
-    rbp_scores_bm25 = []
+    rbp_scores_tfidf, dcg_scores_tfidf, ndcg_scores_tfidf, ap_scores_tfidf = [], [], [], []
+    rbp_scores_bm25, dcg_scores_bm25, ndcg_scores_bm25, ap_scores_bm25 = [], [], [], []
+
     for qline in file:
       parts = qline.strip().split()
       qid = parts[0]
@@ -72,22 +98,38 @@ def eval(qrels, query_file = "queries.txt", k = 1000):
 
       # HATI-HATI, doc id saat indexing bisa jadi berbeda dengan doc id
       # yang tertera di qrels
-      ranking = []
-      for (score, doc) in BSBI_instance.retrieve_tfidf(query, k = k):
+      # TF-IDF
+      ranking_tfidf = []
+      for (score, doc) in BSBI_instance.retrieve_tfidf(query, k=k):
           did = int(re.search(r'\/.*\/.*\/(.*)\.txt', doc).group(1))
-          ranking.append(qrels[qid][did])
-      rbp_scores.append(rbp(ranking))
+          ranking_tfidf.append(qrels[qid][did])
+      rbp_scores_tfidf.append(rbp(ranking_tfidf))
+      dcg_scores_tfidf.append(dcg(ranking_tfidf))
+      ndcg_scores_tfidf.append(ndcg(ranking_tfidf))
+      ap_scores_tfidf.append(ap(ranking_tfidf))
       
+      # BM25
+      ranking_bm25 = []
       for (score, doc) in BSBI_instance.retrieve_bm25(query, k=k):
-        did = int(re.search(r'\/.*\/.*\/(.*)\.txt', doc).group(1))
-        ranking.append(qrels[qid][did])
-      rbp_scores_bm25.append(rbp(ranking))
+          did = int(re.search(r'\/.*\/.*\/(.*)\.txt', doc).group(1))
+          ranking_bm25.append(qrels[qid][did])
+      rbp_scores_bm25.append(rbp(ranking_bm25))
+      dcg_scores_bm25.append(dcg(ranking_bm25))
+      ndcg_scores_bm25.append(ndcg(ranking_bm25))
+      ap_scores_bm25.append(ap(ranking_bm25))
 
+  n = len(rbp_scores_tfidf)
   print("Hasil evaluasi TF-IDF terhadap 30 queries")
-  print("RBP score =", sum(rbp_scores) / len(rbp_scores))
-  
-  print("Hasil evaluasi BM25 terhadap 30 queries")
-  print("RBP score =", sum(rbp_scores_bm25) / len(rbp_scores_bm25))
+  print("RBP score  =", sum(rbp_scores_tfidf) / n)
+  print("DCG score  =", sum(dcg_scores_tfidf) / n)
+  print("NDCG score =", sum(ndcg_scores_tfidf) / n)
+  print("MAP score  =", sum(ap_scores_tfidf) / n)
+
+  print("\nHasil evaluasi BM25 terhadap 30 queries")
+  print("RBP score  =", sum(rbp_scores_bm25) / n)
+  print("DCG score  =", sum(dcg_scores_bm25) / n)
+  print("NDCG score =", sum(ndcg_scores_bm25) / n)
+  print("MAP score  =", sum(ap_scores_bm25) / n)
 
 if __name__ == '__main__':
   qrels = load_qrels()

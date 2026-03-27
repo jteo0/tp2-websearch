@@ -131,7 +131,8 @@ class InvertedIndexReader(InvertedIndex):
         diproses di memori. JANGAN MEMUAT SEMUA INDEX DI MEMORI!
         """
         curr_term = next(self.term_iter)
-        pos, number_of_postings, len_in_bytes_of_postings, len_in_bytes_of_tf = self.postings_dict[curr_term]
+        pos, number_of_postings, len_in_bytes_of_postings, len_in_bytes_of_tf, max_tf = \
+            self.postings_dict[curr_term]
         postings_list = self.postings_encoding.decode(self.index_file.read(len_in_bytes_of_postings))
         tf_list = self.postings_encoding.decode_tf(self.index_file.read(len_in_bytes_of_tf))
         return (curr_term, postings_list, tf_list)
@@ -147,7 +148,8 @@ class InvertedIndexReader(InvertedIndex):
         byte tertentu pada file (index file) dimana postings list (dan juga
         list of TF) dari term disimpan.
         """
-        pos, number_of_postings, len_in_bytes_of_postings, len_in_bytes_of_tf = self.postings_dict[term]
+        pos, number_of_postings, len_in_bytes_of_postings, len_in_bytes_of_tf, max_tf = \
+        self.postings_dict[term]
         self.index_file.seek(pos)
         postings_list = self.postings_encoding.decode(self.index_file.read(len_in_bytes_of_postings))
         tf_list = self.postings_encoding.decode_tf(self.index_file.read(len_in_bytes_of_tf))
@@ -214,9 +216,12 @@ class InvertedIndexWriter(InvertedIndex):
         compressed_tf_list = self.postings_encoding.encode_tf(tf_list)
         self.index_file.write(compressed_postings)
         self.index_file.write(compressed_tf_list)
-        self.postings_dict[term] = (curr_position_in_byte, len(postings_list), \
-                                    len(compressed_postings), len(compressed_tf_list))
+        
+        max_tf = max(tf_list) if tf_list else 0
 
+        self.postings_dict[term] = (curr_position_in_byte, len(postings_list),
+                                len(compressed_postings), len(compressed_tf_list),
+                                max_tf)
 
 if __name__ == "__main__":
 
