@@ -21,7 +21,7 @@ python bsbi.py vbe
 # any other input will use Elias-Gamma
 ```
 
-Then, run ```search.py``` to try the sample queries. Queries can be adjusted by directly editing the query variable within ```search.py```.
+Then, run ```search.py``` to try the sample queries. Queries can be adjusted by directly editing the query variable within ```search.py```. The process will also show individual TF-IDF and BM25 scores for the top 10 texts in collection.
 ```
 python search.py
 ```
@@ -31,4 +31,7 @@ You can evaluate the quality of the retrieval using ```evaluation.py```, which w
 python evaluation.py
 ```
 
-Additionally, 
+Additionally, you can also run ```compression.py``` to view the raw byte output, compressed size, and decoded values from the same postings and TF lists across each of the three compression methods available, that is Standard, VBE, and Elias-Gamma.
+```
+python compression.py
+```
