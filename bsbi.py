@@ -256,23 +256,85 @@ class BSBIIndex:
             N = len(merged_index.doc_length)
             avgdl = sum(merged_index.doc_length.values()) / N
 
-            scores = {}
+            term_data = {}
             for term in terms:
                 if term not in merged_index.postings_dict:
                     continue
-
-                df = merged_index.postings_dict[term][1]
+                pos, df, len_post, len_tf, max_tf = merged_index.postings_dict[term]
                 idf = math.log((N - df + 0.5) / (df + 0.5) + 1)
-
+                tf_norm_upper = (max_tf * (k1 + 1)) / (max_tf + k1 * (1 - b + b * 1 / avgdl))
+                upper_bound = idf * tf_norm_upper
                 postings, tf_list = merged_index.get_postings_list(term)
-                for doc_id, tf in zip(postings, tf_list):
-                    dl = merged_index.doc_length[doc_id]
-                    tf_norm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / avgdl))
-                    scores[doc_id] = scores.get(doc_id, 0) + idf * tf_norm
+                term_data[term] = {
+                    'postings': postings,
+                    'tf_list': tf_list,
+                    'idf': idf,
+                    'upper_bound': upper_bound,
+                    'ptr': 0
+                }
 
-        docs = [(score, self.doc_id_map[doc_id]) for doc_id, score in scores.items()]
-        return sorted(docs, key=lambda x: x[0], reverse=True)[:k]
-    
+            if not term_data:
+                return []
+
+            def get_current_doc(term):
+                ptr = term_data[term]['ptr']
+                postings = term_data[term]['postings']
+                return postings[ptr] if ptr < len(postings) else float('inf')
+
+            def advance_to(term, target):
+                postings = term_data[term]['postings']
+                ptr = term_data[term]['ptr']
+                while ptr < len(postings) and postings[ptr] < target:
+                    ptr += 1
+                term_data[term]['ptr'] = ptr
+
+            heap = []
+            active_terms = list(term_data.keys())
+
+            while True:
+                active_terms = [t for t in active_terms if get_current_doc(t) != float('inf')]
+                if not active_terms:
+                    break
+
+                active_terms.sort(key=lambda t: get_current_doc(t))
+
+                threshold = heap[0][0] if len(heap) == k else 0
+                cumulative = 0
+                pivot_doc = None
+                for term in active_terms:
+                    cumulative += term_data[term]['upper_bound']
+                    if cumulative > threshold:
+                        pivot_doc = get_current_doc(term)
+                        break
+
+                if pivot_doc is None:
+                    break
+
+                first_doc = get_current_doc(active_terms[0])
+                if first_doc == pivot_doc:
+                    score = 0
+                    dl = merged_index.doc_length.get(pivot_doc, avgdl)
+                    for term in active_terms:
+                        if get_current_doc(term) == pivot_doc:
+                            ptr = term_data[term]['ptr']
+                            tf = term_data[term]['tf_list'][ptr]
+                            idf = term_data[term]['idf']
+                            tf_norm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / avgdl))
+                            score += idf * tf_norm
+                            term_data[term]['ptr'] += 1
+
+                    if len(heap) < k:
+                        heapq.heappush(heap, (score, pivot_doc))
+                    elif score > heap[0][0]:
+                        heapq.heapreplace(heap, (score, pivot_doc))
+                else:
+                    for term in active_terms:
+                        if get_current_doc(term) < pivot_doc:
+                            advance_to(term, pivot_doc)
+
+        docs = [(score, self.doc_id_map[doc_id]) for score, doc_id in heap]
+        return sorted(docs, key=lambda x: x[0], reverse=True)
+
     def index(self):
         """
         Base indexing code
