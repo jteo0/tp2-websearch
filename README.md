@@ -7,7 +7,28 @@ This project was developed as a personal exploration on search engines and how t
 
 - Efficiently create inverted indexes with BSBI (Block-Sort Based Indexing)
 - Compare the effectiveness of VBE and Elias-Gamma compression schemes
-- Cmpare the effectiveness of implementing TF-IDF and BM25
+- Compare the effectiveness of implementing TF-IDF and BM25
 
 ## How does it work?
-After cloning or installing the
+After cloning or pulling the project, install tqdm. You can use the following command:
+```
+python install tqdm
+```
+
+Once that's finished installing, ```bsbi.py``` is run first to build the index. You can use either VBE or Elias-Gamma here by adjusting the command you use. Whenever you use a different compression algorithm or adjust anything in the collection folder, you have to empty the index folder and rerun ```bsbi.py```. Otherwise, this only needs to be run once.
+```
+python bsbi.py vbe
+# any other input will use Elias-Gamma
+```
+
+Then, run ```search.py``` to try the sample queries. Queries can be adjusted by directly editing the query variable within ```search.py```.
+```
+python search.py
+```
+
+You can evaluate the quality of the retrieval using ```evaluation.py```, which will compare the retrievals that use TF-IDF and BM25 against each other.
+```
+python evaluation.py
+```
+
+Additionally, 
