@@ -253,7 +253,6 @@ class EliasGammaPostings:
     @staticmethod
     def bits_to_bytes(bits):
         """Packs a list of bits into bytes, padding the last byte with zeros."""
-        # Pad to multiple of 8
         padding = (8 - len(bits) % 8) % 8
         bits = bits + [0] * padding
         byte_list = []
@@ -312,7 +311,9 @@ class EliasGammaPostings:
         """Gap-encode then Elias-Gamma compress."""
         gap_list = [postings_list[0]]
         for i in range(1, len(postings_list)):
-            gap_list.append(postings_list[i] - postings_list[i-1])
+            gap = postings_list[i] - postings_list[i-1]
+            assert gap > 0, f"duplicate or unsorted docID at index {i}: {postings_list[i]}"
+            gap_list.append(gap)
         return EliasGammaPostings.eg_encode(gap_list)
 
     @staticmethod

@@ -15,10 +15,11 @@ After cloning or pulling the project, install tqdm. You can use the following co
 python install tqdm
 ```
 
-Once that's finished installing, ```bsbi.py``` is run first to build the index. You can use either VBE or Elias-Gamma here by adjusting the command you use. Whenever you use a different compression algorithm or adjust anything in the collection folder, you have to empty the index folder and rerun ```bsbi.py```. Otherwise, this only needs to be run once.
+Once that's finished installing, ```bsbi.py``` is run first to build the index. You can use either VBE or Elias-Gamma here by adjusting the command you use, as well as pick between using SPIMI or BSBI for indexing. Whenever you use a different compression algorithm or adjust anything in the collection folder, you have to empty the index folder and rerun ```bsbi.py```. Otherwise, this only needs to be run once. Note, SPIMI should not be run with Elias-Gamma because Elias-Gamma cannot encode 0, which sometimes appears if using SPIMI.
 ```
-python bsbi.py vbe
-# any other input will use Elias-Gamma
+python bsbi.py vbe spimi
+# any other input for the first argument will use Elias-Gamma
+# any other input for the second argument will use BSBI
 ```
 
 Then, run ```search.py``` to try the sample queries. Queries can be adjusted by directly editing the query variable within ```search.py```. The process will also show individual TF-IDF and BM25 scores for the top 10 texts in collection.

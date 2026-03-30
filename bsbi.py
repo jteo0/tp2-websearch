@@ -93,6 +93,16 @@ class BSBIIndex:
                     td_pairs.append((self.term_id_map[token], self.doc_id_map[docname]))
 
         return td_pairs
+    
+    def parse_block_spimi(self, block_dir_relative):
+        dir = "./" + self.data_dir + "/" + block_dir_relative
+        td_pairs = []
+        for filename in next(os.walk(dir))[2]:
+            docname = dir + "/" + filename
+            with open(docname, "r", encoding="utf8", errors="surrogateescape") as f:
+                for token in f.read().split():
+                    td_pairs.append((token, self.doc_id_map[docname]))
+        return td_pairs
 
     def invert_write(self, td_pairs, index):
         """
@@ -131,6 +141,19 @@ class BSBIIndex:
             assoc_tf = [term_tf[term_id][doc_id] for doc_id in sorted_doc_id]
             index.append(term_id, sorted_doc_id, assoc_tf)
 
+    def invert_write_spimi(self, td_pairs, index):
+        local_dict = {}  # term_string -> {doc_id: tf}
+        for term_str, doc_id in td_pairs:
+            if term_str not in local_dict:
+                local_dict[term_str] = {}
+            local_dict[term_str][doc_id] = local_dict[term_str].get(doc_id, 0) + 1
+
+        for term_str in sorted(local_dict.keys()):
+            term_id = self.term_id_map[term_str]
+            sorted_doc_ids = sorted(local_dict[term_str].keys())
+            tf_list = [local_dict[term_str][doc_id] for doc_id in sorted_doc_ids]
+            index.append(term_id, sorted_doc_ids, tf_list)
+    
     def merge(self, indices, merged_index):
         """
         Lakukan merging ke semua intermediate inverted indices menjadi
@@ -335,7 +358,7 @@ class BSBIIndex:
         docs = [(score, self.doc_id_map[doc_id]) for score, doc_id in heap]
         return sorted(docs, key=lambda x: x[0], reverse=True)
 
-    def index(self):
+    def index(self, method='bsbi'):
         """
         Base indexing code
         BAGIAN UTAMA untuk melakukan Indexing dengan skema BSBI (blocked-sort
@@ -347,11 +370,17 @@ class BSBIIndex:
         """
         # loop untuk setiap sub-directory di dalam folder collection (setiap block)
         for block_dir_relative in tqdm(sorted(next(os.walk(self.data_dir))[1])):
-            td_pairs = self.parse_block(block_dir_relative)
+            if method == 'spimi':
+                td_pairs = self.parse_block_spimi(block_dir_relative)
+            else:
+                td_pairs = self.parse_block(block_dir_relative)
             index_id = 'intermediate_index_'+block_dir_relative
             self.intermediate_indices.append(index_id)
             with InvertedIndexWriter(index_id, self.postings_encoding, directory = self.output_dir) as index:
-                self.invert_write(td_pairs, index)
+                if method == 'spimi':
+                    self.invert_write_spimi(td_pairs, index)
+                else:
+                    self.invert_write(td_pairs, index)
                 td_pairs = None
     
         self.save()
@@ -365,7 +394,8 @@ class BSBIIndex:
 
 if __name__ == "__main__":
     encoding = VBEPostings if len(sys.argv) < 2 or sys.argv[1] == "vbe" else EliasGammaPostings
-    BSBI_instance = BSBIIndex(data_dir = 'collection', \
-                              postings_encoding = encoding, \
-                              output_dir = 'index')
-    BSBI_instance.index() # memulai indexing!
+    method = 'spimi' if len(sys.argv) > 2 and sys.argv[2] == 'spimi' else 'bsbi'
+    BSBI_instance = BSBIIndex(data_dir='collection',
+                              postings_encoding=encoding,
+                              output_dir='index')
+    BSBI_instance.index(method=method)
